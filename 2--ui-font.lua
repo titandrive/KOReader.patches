@@ -4,7 +4,6 @@ local Font = require("ui/font")
 local Version = require("version")
 local _ = require("gettext")
 local T = require("ffi/util").template
-local FontList = require("fontlist")
 local UIManager = require("ui/uimanager")
 local cre = require("document/credocument"):engineInit()
 local logger = require("logger")
@@ -17,12 +16,6 @@ if Version:getNormalizedCurrentVersion() < Version:getNormalizedVersion("v2025.0
     end
 end
 
--- util
-local function get_bold_path(path_regular)
-    local path_bold, n_repl = path_regular:gsub("%-Regular%.", "-Bold.", 1)
-    return n_repl > 0 and path_bold
-end
-
 -- UI font
 local UIFont = {
     setting = { name = "ui_font_name", default = "Noto Sans" },
@@ -33,16 +26,14 @@ function UIFont:getSetting() return G_reader_settings:readSetting(self.setting.n
 function UIFont:setSetting(value) G_reader_settings:saveSetting(self.setting.name, value) end
 
 function UIFont:init()
-    local path_exists = {}
-    -- stylua: ignore
-    for _, font in ipairs(FontList.fontlist) do path_exists[font] = true end
-
     self.font_list = {}
     self.fonts = {}
     for _, name in ipairs(cre.getFontFaces()) do
         local path_regular = cre.getFontFaceFilenameAndFaceIndex(name)
-        local path_bold = get_bold_path(path_regular)
-        if path_exists[path_regular] and path_exists[path_bold] then
+        if path_regular then
+            -- ask crengine for the real bold face instead of guessing the filename,
+            -- since FontList's own directory scan can disagree with cre's paths on some devices (e.g. Boox)
+            local path_bold = cre.getFontFaceFilenameAndFaceIndex(name, true) or path_regular
             table.insert(self.font_list, name)
             self.fonts[name] = { regular = path_regular, bold = path_bold }
         end
